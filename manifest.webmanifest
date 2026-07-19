@@ -1,0 +1,17 @@
+{
+  "name": "Mantenimiento Auto",
+  "short_name": "Mant. Auto",
+  "description": "Registro de mantenimientos, próximos vencimientos y gasto estimado de tu auto.",
+  "id": "/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fef3e9",
+  "theme_color": "#ec6100",
+  "lang": "es-EC",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
