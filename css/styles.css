@@ -59,6 +59,7 @@ button{-webkit-appearance:none;appearance:none;}
 .vehicle-option-name{font:700 14px Nunito,sans-serif;}
 .vehicle-option-plate{font:600 11px Nunito,sans-serif;color:oklch(55% 0.02 50);}
 .vehicle-option-add{color:var(--primary-dark);font:700 13px Nunito,sans-serif;}
+.vehicle-dropdown-divider{height:1px;background:var(--card-border);margin:4px 2px;}
 
 /* ===== Hero card ===== */
 .hero-card{

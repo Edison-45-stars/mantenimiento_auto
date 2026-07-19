@@ -94,4 +94,11 @@ const Store = {
       req.onerror = () => reject(req.error);
     });
   },
+  clearVehicles() {
+    return new Promise((resolve, reject) => {
+      const req = tx(this.db, STORE_VEHICLES, 'readwrite').clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  },
 };

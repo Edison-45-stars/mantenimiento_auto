@@ -12,6 +12,10 @@ function renderVehicleHeader(vm) {
           <div class="vehicle-option-plate">${esc(v.plate)}</div>
         </button>`).join('')}
       <button type="button" class="vehicle-option vehicle-option-add" data-action="openAddVehicle">+ Agregar vehículo</button>
+      <div class="vehicle-dropdown-divider"></div>
+      <button type="button" class="vehicle-option vehicle-option-add" data-action="exportBackup">⬇ Exportar respaldo</button>
+      <button type="button" class="vehicle-option vehicle-option-add" data-action="importBackup">⬆ Importar respaldo</button>
+      <input type="file" id="backupInput" accept="application/json,.json" style="display:none;">
     </div>` : '';
   return `
   <div class="vehicle-header">

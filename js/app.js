@@ -89,11 +89,18 @@ function render() {
 
   const camInput = document.getElementById('cameraInput');
   if (camInput) camInput.addEventListener('change', onCameraChange);
+  const backupInput = document.getElementById('backupInput');
+  if (backupInput) backupInput.addEventListener('change', onBackupChange);
 }
 
 function setState(patch) {
   Object.assign(state, patch);
   render();
+}
+
+function showToast(msg) {
+  setState({ toast: msg });
+  setTimeout(() => setState({ toast: null }), 2500);
 }
 
 // ===== Navigation =====
@@ -136,6 +143,57 @@ async function saveVehicle() {
   await Store.putVehicle(vehicle);
   await Store.setMeta('currentVehicleId', id);
   setState({ currentVehicleId: id, modal: null });
+}
+
+// ===== Respaldo (exportar / importar un archivo local, sin servidor) =====
+function exportBackup() {
+  const payload = {
+    app: 'mantenimiento-auto', version: 1,
+    exportedAt: new Date().toISOString(),
+    currentVehicleId: state.currentVehicleId,
+    vehicles: state.vehicles,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `respaldo-mantenimiento-auto-${todayIso()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setState({ vehiclePickerOpen: false });
+  showToast('Respaldo exportado');
+}
+
+function importBackup() {
+  const input = document.getElementById('backupInput');
+  if (input) input.click();
+}
+
+async function onBackupChange(e) {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+  } catch (err) {
+    alert('Ese archivo no es un respaldo válido (JSON inválido).');
+    return;
+  }
+  if (!data || !Array.isArray(data.vehicles) || !data.vehicles.length) {
+    alert('Ese archivo no tiene el formato de respaldo esperado.');
+    return;
+  }
+  const ok = confirm('Esto va a REEMPLAZAR todos los datos actuales de la app con los del archivo de respaldo. ¿Continuar?');
+  if (!ok) return;
+  await Store.clearVehicles();
+  for (const v of data.vehicles) await Store.putVehicle(v);
+  const currentVehicleId = data.currentVehicleId || data.vehicles[0].id;
+  await Store.setMeta('currentVehicleId', currentVehicleId);
+  setState({ vehicles: data.vehicles, currentVehicleId, vehiclePickerOpen: false, tab: 'inicio', selectedId: null });
+  showToast('Respaldo importado');
 }
 
 // ===== Historial toggle =====
@@ -224,6 +282,7 @@ const actions = {
   openAddVehicle, editKm, closeModal, saveKm, saveVehicle, setViewPieza, setViewFecha,
   startScan, startManual, resetAdd, saveRecord, goToHistorialFromDone,
   dismissInstallBanner, installApp, dismissNotifBanner, requestNotifPermission,
+  exportBackup, importBackup,
 };
 
 appEl.addEventListener('click', (e) => {
