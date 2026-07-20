@@ -145,6 +145,24 @@ async function saveVehicle() {
   setState({ currentVehicleId: id, modal: null });
 }
 
+async function deleteVehicle(id) {
+  if (state.vehicles.length <= 1) {
+    alert('Debe quedar al menos un vehículo. Agrega otro antes de eliminar este.');
+    return;
+  }
+  const vehicle = state.vehicles.find(v => v.id === id);
+  if (!confirm(`¿Eliminar "${vehicle.name}" y todo su historial de mantenimientos? Esta acción no se puede deshacer.`)) return;
+  await Store.deleteVehicle(id);
+  state.vehicles = state.vehicles.filter(v => v.id !== id);
+  let currentVehicleId = state.currentVehicleId;
+  if (currentVehicleId === id) {
+    currentVehicleId = state.vehicles[0].id;
+    await Store.setMeta('currentVehicleId', currentVehicleId);
+  }
+  setState({ vehicles: state.vehicles, currentVehicleId, selectedId: null, tab: state.tab === 'detalle' ? 'inicio' : state.tab });
+  showToast('Vehículo eliminado');
+}
+
 // ===== Respaldo (exportar / importar un archivo local, sin servidor) =====
 function exportBackup() {
   const payload = {
@@ -286,13 +304,15 @@ const actions = {
 };
 
 appEl.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-action]');
+  const el = e.target.closest('[data-action], [data-stop]');
   if (!el || !appEl.contains(el)) return;
+  if (!el.dataset.action) return; // clic dentro de una zona "data-stop" (ej. tarjeta del modal): no hacer nada
   const action = el.dataset.action;
   const id = el.dataset.id;
   if (action === 'openDetail') return openDetail(id);
   if (action === 'selectVehicle') return selectVehicle(id);
   if (action === 'deleteRecord') return deleteRecord(id);
+  if (action === 'deleteVehicle') return deleteVehicle(id);
   if (actions[action]) return actions[action]();
 });
 

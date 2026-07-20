@@ -6,11 +6,14 @@ function renderVehicleHeader(vm) {
   const dropdown = vm.vehiclePickerOpen ? `
     <div class="vehicle-dropdown">
       ${vm.vehicleOptions.map(v => `
-        <button type="button" class="vehicle-option" data-action="selectVehicle" data-id="${esc(v.id)}"
-          style="background:${v.active ? 'oklch(96% 0.03 55)' : 'transparent'};color:${v.active ? 'var(--primary-dark)' : 'var(--text)'};">
-          <div class="vehicle-option-name">${esc(v.name)}</div>
-          <div class="vehicle-option-plate">${esc(v.plate)}</div>
-        </button>`).join('')}
+        <div class="vehicle-option-row">
+          <button type="button" class="vehicle-option" data-action="selectVehicle" data-id="${esc(v.id)}"
+            style="background:${v.active ? 'oklch(96% 0.03 55)' : 'transparent'};color:${v.active ? 'var(--primary-dark)' : 'var(--text)'};">
+            <div class="vehicle-option-name">${esc(v.name)}</div>
+            <div class="vehicle-option-plate">${esc(v.plate)}</div>
+          </button>
+          <button type="button" class="vehicle-option-delete" data-action="deleteVehicle" data-id="${esc(v.id)}" aria-label="Eliminar vehículo">🗑</button>
+        </div>`).join('')}
       <button type="button" class="vehicle-option vehicle-option-add" data-action="openAddVehicle">+ Agregar vehículo</button>
       <div class="vehicle-dropdown-divider"></div>
       <button type="button" class="vehicle-option vehicle-option-add" data-action="exportBackup">⬇ Exportar respaldo</button>

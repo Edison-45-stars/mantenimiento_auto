@@ -60,6 +60,9 @@ button{-webkit-appearance:none;appearance:none;}
 .vehicle-option-plate{font:600 11px Nunito,sans-serif;color:oklch(55% 0.02 50);}
 .vehicle-option-add{color:var(--primary-dark);font:700 13px Nunito,sans-serif;}
 .vehicle-dropdown-divider{height:1px;background:var(--card-border);margin:4px 2px;}
+.vehicle-option-row{display:flex;align-items:stretch;gap:2px;}
+.vehicle-option-row .vehicle-option{flex:1;}
+.vehicle-option-delete{flex:none;background:transparent;border:none;color:var(--vencido);font-size:16px;padding:0 10px;cursor:pointer;border-radius:8px;}
 
 /* ===== Hero card ===== */
 .hero-card{
