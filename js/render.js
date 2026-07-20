@@ -190,6 +190,7 @@ function renderAgregar(vm) {
       <div class="cam-icon"><div class="cam-icon-top"></div><div class="cam-icon-lens"></div></div>
       <div class="add-hint">Toma una foto clara de la factura o recibo</div>
       <button type="button" class="pill pill-primary" data-action="startScan">Tomar foto de factura</button>
+      <button type="button" class="pill pill-outline" data-action="chooseFromGallery">Elegir de galería</button>
       <div class="divider-or">— o —</div>
       <button type="button" class="pill pill-outline" data-action="startManual">Agregar manualmente</button>
     </div>`;
@@ -265,7 +266,8 @@ function renderAgregar(vm) {
   <div class="add-intro">Escanea la factura y completamos los datos por ti</div>
   ${inner}
   <div style="height:14px;"></div>
-  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">`;
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+  <input type="file" id="galleryInput" accept="image/*" style="display:none;">`;
 }
 
 function renderTabBar(vm) {

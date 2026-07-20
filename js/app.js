@@ -89,6 +89,8 @@ function render() {
 
   const camInput = document.getElementById('cameraInput');
   if (camInput) camInput.addEventListener('change', onCameraChange);
+  const galleryInput = document.getElementById('galleryInput');
+  if (galleryInput) galleryInput.addEventListener('change', onCameraChange);
   const backupInput = document.getElementById('backupInput');
   if (backupInput) backupInput.addEventListener('change', onBackupChange);
 }
@@ -225,6 +227,11 @@ function startScan() {
   setState({ addStep: 'start' });
 }
 
+function chooseFromGallery() {
+  const galleryInput = document.getElementById('galleryInput');
+  if (galleryInput) galleryInput.click();
+}
+
 function onCameraChange(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -300,7 +307,7 @@ const actions = {
   openAddVehicle, editKm, closeModal, saveKm, saveVehicle, setViewPieza, setViewFecha,
   startScan, startManual, resetAdd, saveRecord, goToHistorialFromDone,
   dismissInstallBanner, installApp, dismissNotifBanner, requestNotifPermission,
-  exportBackup, importBackup,
+  exportBackup, importBackup, chooseFromGallery,
 };
 
 appEl.addEventListener('click', (e) => {
