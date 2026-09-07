@@ -144,7 +144,7 @@
   <form class="box" id="lockForm">
     <h1 class="serif">Mis Finanzas</h1>
     <p>Ingresá el código para continuar</p>
-    <input type="password" inputmode="numeric" autocomplete="off" id="lockInput" placeholder="••••" maxlength="12" autofocus>
+    <input type="password" autocapitalize="characters" autocomplete="off" id="lockInput" placeholder="••••" maxlength="12" autofocus>
     <p class="err" id="lockErr"></p>
     <button type="submit" class="btn">Entrar</button>
   </form>
@@ -926,7 +926,7 @@ if (sessionStorage.getItem(LOCK_KEY) === "1") {
   document.getElementById("lockForm").addEventListener("submit", function(e){
     e.preventDefault();
     var input = document.getElementById("lockInput");
-    if (input.value === LOCK_CODE) {
+    if (input.value.trim().toUpperCase() === LOCK_CODE) {
       try { sessionStorage.setItem(LOCK_KEY, "1"); } catch (err) {}
       unlockApp();
     } else {
