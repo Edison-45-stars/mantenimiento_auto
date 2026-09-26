@@ -79,9 +79,10 @@
   .cat-row .delta{font-family:'IBM Plex Mono',monospace;font-size:11.5px;}
   .cat-detail{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);}
   .cat-detail .drow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
-  .cat-detail .drow .t{font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cat-detail .drow .info{flex:1;min-width:0;}
+  .cat-detail .drow .t{font-size:12.5px;overflow-wrap:break-word;word-break:break-word;}
   .cat-detail .drow .d{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:1px;}
-  .cat-detail .drow .a{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--red);flex-shrink:0;}
+  .cat-detail .drow .a{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--red);flex-shrink:0;white-space:nowrap;}
   .cat-detail .empty{margin:0;font-size:12px;color:var(--muted);}
   .split{display:flex;gap:14px;margin-top:15px;padding-top:13px;border-top:1px solid var(--line-soft);}
   .split div{flex:1;}
@@ -494,7 +495,7 @@ function renderResumen(){
         if (catMovs.length) {
           catMovs.forEach(function(mv){
             detail.appendChild(el("div", { class: "drow" }, [
-              el("div", {}, [
+              el("div", { class: "info" }, [
                 el("div", { class: "t", text: mv.descripcion }),
                 el("div", { class: "d", text: fechaLabel(mv.fecha) + " · " + mv.frecuencia })
               ]),
