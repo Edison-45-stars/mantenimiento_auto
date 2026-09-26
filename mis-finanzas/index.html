@@ -194,6 +194,7 @@ var CATS = {
 var SEED = {"Alimentación":150,"Suscripciones":35,"Transporte":60,"Servicios (luz, agua, internet)":45,"Salud":40,"Ahorro / Inversión":200};
 var MKEY = "misFinanzas.movimientos.v1";
 var BKEY = "misFinanzas.presupuesto.v1";
+var CKEY = "misFinanzas.categoriasExtra.v1";
 var COMPARE_BASE = "Mes anterior";
 
 var fUSD = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
@@ -215,7 +216,8 @@ var state = {
   noticeOpen: true,
   movFilter: "month",
   selectedCat: null,
-  fTipo: "Gasto", fCat: CATS.Gasto[0], fFrec: "Variable", fDesc: "", fMonto: "", addError: false, editId: null,
+  customCats: { Ingreso: [], Gasto: [] },
+  fTipo: "Gasto", fCat: CATS.Gasto[0], fFrec: "Variable", fDesc: "", fMonto: "", fCatNueva: "", addError: false, editId: null,
   fFecha: now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0"),
   bCat: "Alimentación", bMonto: "", bNombre: "", bEditKey: null, bError: "",
   bNuevoNombre: "", bNuevoMonto: "", bAddError: "",
@@ -230,9 +232,17 @@ function persist(key, val){
 }
 function saveMovements(list){ persist(MKEY, list); state.movements = list; }
 function saveBudget(obj){ persist(BKEY, obj); state.budget = obj; }
+function catsFor(tipo){ return CATS[tipo].concat(state.customCats[tipo] || []); }
+function addCustomCat(tipo, name){
+  if (CATS[tipo].indexOf(name) > -1 || state.customCats[tipo].indexOf(name) > -1) return;
+  var cc = { Ingreso: state.customCats.Ingreso.slice(), Gasto: state.customCats.Gasto.slice() };
+  cc[tipo].push(name);
+  persist(CKEY, cc);
+  state.customCats = cc;
+}
 
 (function init(){
-  var movements = [], budget = {}, storageOk = true;
+  var movements = [], budget = {}, customCats = { Ingreso: [], Gasto: [] }, storageOk = true;
   try {
     localStorage.setItem("misFinanzas.test","1");
     storageOk = localStorage.getItem("misFinanzas.test") === "1";
@@ -242,9 +252,12 @@ function saveBudget(obj){ persist(BKEY, obj); state.budget = obj; }
     var rb = localStorage.getItem(BKEY);
     var b = rb ? JSON.parse(rb) : {};
     if (b && typeof b === "object") budget = b;
+    var rc = localStorage.getItem(CKEY);
+    var c = rc ? JSON.parse(rc) : null;
+    if (c && Array.isArray(c.Ingreso) && Array.isArray(c.Gasto)) customCats = c;
   } catch (e) { storageOk = false; }
   if (Object.keys(budget).length === 0) { budget = Object.assign({}, SEED); persist(BKEY, budget); }
-  state.movements = movements; state.budget = budget; state.storageOk = storageOk;
+  state.movements = movements; state.budget = budget; state.customCats = customCats; state.storageOk = storageOk;
 })();
 
 function shiftMonth(y, m, back){
@@ -662,7 +675,7 @@ function renderPresupuesto(){
   }
   root.appendChild(listCard);
 
-  var bAllCats = CATS.Gasto.slice();
+  var bAllCats = catsFor("Gasto").slice();
   bCats.forEach(function(c){ if (bAllCats.indexOf(c) === -1) bAllCats.push(c); });
   var addCard = el("div", { class: "card" }, [ el("h2", { text: "Agregar presupuesto", style: "margin-bottom:12px" }) ]);
   var addWrap = el("div", { style: "display:flex;flex-direction:column;gap:11px" });
@@ -699,7 +712,8 @@ function renderPresupuesto(){
 }
 
 function movFormFields(container, isEdit){
-  var formCats = CATS[state.fTipo].indexOf(state.fCat) > -1 ? CATS[state.fTipo] : [state.fCat].concat(CATS[state.fTipo]);
+  var baseCats = catsFor(state.fTipo);
+  var formCats = state.fCat === "__nueva__" || baseCats.indexOf(state.fCat) > -1 ? baseCats : [state.fCat].concat(baseCats);
   container.appendChild(el("div", { class: "grid2" }, [
     el("button", { type: "button", class: "seg" + (state.fTipo === "Gasto" ? " on" : ""), text: "Gasto", onclick: function(){ state.fTipo = "Gasto"; state.fCat = CATS.Gasto[0]; render(); } }),
     el("button", { type: "button", class: "seg" + (state.fTipo === "Ingreso" ? " on" : ""), text: "Ingreso", onclick: function(){ state.fTipo = "Ingreso"; state.fCat = CATS.Ingreso[0]; render(); } })
@@ -710,9 +724,16 @@ function movFormFields(container, isEdit){
       oninput: function(e){ e.target.value = cleanMontoInput(e.target.value); state.fMonto = e.target.value; } })]));
   container.appendChild(el("label", { class: "field" }, [el("span", { class: "lbl", text: "Descripción" }),
     el("input", { type: "text", placeholder: "Ej. Supermercado", value: state.fDesc, oninput: function(e){ state.fDesc = e.target.value; } })]));
-  var catSel = el("select", { onchange: function(e){ state.fCat = e.target.value; render(); } });
+  var catSel = el("select", { onchange: function(e){ state.fCat = e.target.value; state.addError = false; render(); } });
   formCats.forEach(function(c){ var o = el("option", { value: c, text: c }); if (c === state.fCat) o.selected = true; catSel.appendChild(o); });
+  var nuevaOpt = el("option", { value: "__nueva__", text: "+ Escribir otra categoría…" });
+  if (state.fCat === "__nueva__") nuevaOpt.selected = true;
+  catSel.appendChild(nuevaOpt);
   container.appendChild(el("label", { class: "field" }, [el("span", { class: "lbl", text: "Categoría" }), catSel]));
+  if (state.fCat === "__nueva__") {
+    container.appendChild(el("label", { class: "field" }, [el("span", { class: "lbl", text: "Nombre de la categoría" }),
+      el("input", { type: "text", placeholder: "Ej. Mascotas", value: state.fCatNueva, oninput: function(e){ state.fCatNueva = e.target.value; state.addError = false; } })]));
+  }
   var freqSel = el("select", { onchange: function(e){ state.fFrec = e.target.value; } }, [
     el("option", { value: "Fijo", text: "Fijo" }), el("option", { value: "Variable", text: "Variable" })
   ]);
@@ -730,17 +751,19 @@ function movFormFields(container, isEdit){
   } else {
     container.appendChild(el("button", { type: "button", class: "btn", style: "height:48px;font-size:15px", text: "Agregar", onclick: submitMovement }));
   }
-  if (state.addError) container.appendChild(el("p", { class: "err", text: "Completá monto, descripción y fecha para guardar." }));
+  if (state.addError) container.appendChild(el("p", { class: "err", text: "Completá monto, descripción, categoría y fecha para guardar." }));
 }
 function submitMovement(){
   var monto = montoValue(state.fMonto);
-  if (!state.fFecha || !state.fDesc.trim() || monto === null) { state.addError = true; render(); return; }
-  var data = { fecha: state.fFecha, tipo: state.fTipo, categoria: state.fCat, frecuencia: state.fFrec, descripcion: state.fDesc.trim(), monto: monto };
+  var catName = state.fCat === "__nueva__" ? state.fCatNueva.trim() : state.fCat;
+  if (!state.fFecha || !state.fDesc.trim() || monto === null || !catName) { state.addError = true; render(); return; }
+  if (state.fCat === "__nueva__") addCustomCat(state.fTipo, catName);
+  var data = { fecha: state.fFecha, tipo: state.fTipo, categoria: catName, frecuencia: state.fFrec, descripcion: state.fDesc.trim(), monto: monto };
   var list = state.editId
     ? state.movements.map(function(m){ return m.id === state.editId ? Object.assign({}, m, data) : m; })
     : state.movements.concat([Object.assign({ id: newId() }, data)]);
   saveMovements(list);
-  state.fDesc = ""; state.fMonto = ""; state.addError = false; state.editId = null;
+  state.fDesc = ""; state.fMonto = ""; state.fCat = catName; state.fCatNueva = ""; state.addError = false; state.editId = null;
   render();
 }
 
