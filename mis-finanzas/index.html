@@ -71,11 +71,18 @@
   .bartrack .fill{height:100%;border-radius:4px;}
   .barrow{display:flex;align-items:center;gap:7px;}
   .barrow .amt{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);width:78px;text-align:right;flex-shrink:0;}
-  .cat-row{display:flex;flex-direction:column;gap:5px;}
+  .cat-row{display:flex;flex-direction:column;gap:5px;width:100%;background:none;border:none;padding:6px;margin:-6px;border-radius:9px;cursor:pointer;text-align:left;font:inherit;color:inherit;}
+  .cat-row:hover,.cat-row.open{background:var(--accent-soft);}
   .cat-row .lab{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
   .cat-row .lab .name{font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .cat-row .lab .amt{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);flex-shrink:0;}
   .cat-row .delta{font-family:'IBM Plex Mono',monospace;font-size:11.5px;}
+  .cat-detail{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);}
+  .cat-detail .drow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .cat-detail .drow .t{font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cat-detail .drow .d{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:1px;}
+  .cat-detail .drow .a{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--red);flex-shrink:0;}
+  .cat-detail .empty{margin:0;font-size:12px;color:var(--muted);}
   .split{display:flex;gap:14px;margin-top:15px;padding-top:13px;border-top:1px solid var(--line-soft);}
   .split div{flex:1;}
   .split .lbl{font-size:11px;color:var(--muted);margin-bottom:3px;}
@@ -206,6 +213,7 @@ var state = {
   saveError: false,
   noticeOpen: true,
   movFilter: "month",
+  selectedCat: null,
   fTipo: "Gasto", fCat: CATS.Gasto[0], fFrec: "Variable", fDesc: "", fMonto: "", addError: false, editId: null,
   fFecha: now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0"),
   bCat: "Alimentación", bMonto: "", bNombre: "", bEditKey: null, bError: "",
@@ -466,14 +474,41 @@ function renderResumen(){
   if (catEntries.length) {
     var catList = el("div", { style: "display:flex;flex-direction:column;gap:12px" });
     catEntries.forEach(function(e){
-      var d = deltaText(e[1], base.cats[e[0]] || 0, true);
+      var catName = e[0];
+      var open = state.selectedCat === catName;
+      var d = deltaText(e[1], base.cats[catName] || 0, true);
       var fill = el("div", { class: "fill" }); fill.style.background = "var(--red)"; fill.style.width = (e[1]/maxCat*100).toFixed(1) + "%";
       var deltaEl = el("div", { class: "delta", text: d.text }); deltaEl.style.color = d.color;
-      catList.appendChild(el("div", { class: "cat-row" }, [
-        el("div", { class: "lab" }, [el("span", { class: "name", text: e[0] }), el("span", { class: "amt", text: money(e[1]) })]),
+      var rowChildren = [
+        el("div", { class: "lab" }, [el("span", { class: "name", text: catName }), el("span", { class: "amt", text: money(e[1]) })]),
         el("div", { class: "bartrack thick" }, [fill]),
         deltaEl
-      ]));
+      ];
+      if (open) {
+        var catMovs = state.movements.filter(function(mv){
+          if (mv.tipo === "Ingreso" || mv.categoria !== catName) return false;
+          var p = String(mv.fecha).split("-");
+          return parseInt(p[0],10) === state.year && parseInt(p[1],10) === state.month;
+        }).sort(function(a,b){ return a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0; });
+        var detail = el("div", { class: "cat-detail" });
+        if (catMovs.length) {
+          catMovs.forEach(function(mv){
+            detail.appendChild(el("div", { class: "drow" }, [
+              el("div", {}, [
+                el("div", { class: "t", text: mv.descripcion }),
+                el("div", { class: "d", text: fechaLabel(mv.fecha) + " · " + mv.frecuencia })
+              ]),
+              el("span", { class: "a", text: "−" + money(Number(mv.monto)||0) })
+            ]));
+          });
+        } else {
+          detail.appendChild(el("p", { class: "empty", text: "Sin movimientos registrados en este mes." }));
+        }
+        rowChildren.push(detail);
+      }
+      catList.appendChild(el("button", { type: "button", class: "cat-row" + (open ? " open" : ""),
+        "aria-expanded": open ? "true" : "false",
+        onclick: function(){ state.selectedCat = open ? null : catName; render(); } }, rowChildren));
     });
     catCard.appendChild(catList);
   } else {
