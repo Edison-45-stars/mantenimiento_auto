@@ -195,6 +195,7 @@ var SEED = {"Alimentación":150,"Suscripciones":35,"Transporte":60,"Servicios (l
 var MKEY = "misFinanzas.movimientos.v1";
 var BKEY = "misFinanzas.presupuesto.v1";
 var CKEY = "misFinanzas.categoriasExtra.v1";
+var HKEY = "misFinanzas.categoriasOcultas.v1";
 var COMPARE_BASE = "Mes anterior";
 
 var fUSD = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
@@ -217,6 +218,8 @@ var state = {
   movFilter: "month",
   selectedCat: null,
   customCats: { Ingreso: [], Gasto: [] },
+  hiddenCats: { Ingreso: [], Gasto: [] },
+  catPendingDelete: null,
   fTipo: "Gasto", fCat: CATS.Gasto[0], fFrec: "Variable", fDesc: "", fMonto: "", fCatNueva: "", addError: false, editId: null,
   fFecha: now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0"),
   bCat: "Alimentación", bMonto: "", bNombre: "", bEditKey: null, bError: "",
@@ -232,7 +235,15 @@ function persist(key, val){
 }
 function saveMovements(list){ persist(MKEY, list); state.movements = list; }
 function saveBudget(obj){ persist(BKEY, obj); state.budget = obj; }
-function catsFor(tipo){ return CATS[tipo].concat(state.customCats[tipo] || []); }
+function catsFor(tipo){
+  var hidden = state.hiddenCats[tipo] || [];
+  return CATS[tipo].concat(state.customCats[tipo] || []).filter(function(c){ return hidden.indexOf(c) === -1; });
+}
+function allCatsFor(tipo){
+  var seen = {}, out = [];
+  CATS[tipo].concat(state.customCats[tipo] || []).forEach(function(c){ if (!seen[c]) { seen[c] = true; out.push(c); } });
+  return out;
+}
 function addCustomCat(tipo, name){
   if (CATS[tipo].indexOf(name) > -1 || state.customCats[tipo].indexOf(name) > -1) return;
   var cc = { Ingreso: state.customCats.Ingreso.slice(), Gasto: state.customCats.Gasto.slice() };
@@ -240,9 +251,23 @@ function addCustomCat(tipo, name){
   persist(CKEY, cc);
   state.customCats = cc;
 }
+function deleteCat(tipo, name){
+  var hc = { Ingreso: state.hiddenCats.Ingreso.slice(), Gasto: state.hiddenCats.Gasto.slice() };
+  if (hc[tipo].indexOf(name) === -1) hc[tipo].push(name);
+  persist(HKEY, hc);
+  state.hiddenCats = hc;
+  if (tipo === "Gasto" && Object.prototype.hasOwnProperty.call(state.budget, name)) {
+    var b = Object.assign({}, state.budget);
+    delete b[name];
+    persist(BKEY, b);
+    state.budget = b;
+  }
+  if (state.fTipo === tipo && state.fCat === name) state.fCat = catsFor(tipo)[0] || "__nueva__";
+  if (tipo === "Gasto" && state.bCat === name) state.bCat = catsFor("Gasto")[0] || "__nueva__";
+}
 
 (function init(){
-  var movements = [], budget = {}, customCats = { Ingreso: [], Gasto: [] }, storageOk = true;
+  var movements = [], budget = {}, customCats = { Ingreso: [], Gasto: [] }, hiddenCats = { Ingreso: [], Gasto: [] }, storageOk = true;
   try {
     localStorage.setItem("misFinanzas.test","1");
     storageOk = localStorage.getItem("misFinanzas.test") === "1";
@@ -255,9 +280,12 @@ function addCustomCat(tipo, name){
     var rc = localStorage.getItem(CKEY);
     var c = rc ? JSON.parse(rc) : null;
     if (c && Array.isArray(c.Ingreso) && Array.isArray(c.Gasto)) customCats = c;
+    var rh = localStorage.getItem(HKEY);
+    var h = rh ? JSON.parse(rh) : null;
+    if (h && Array.isArray(h.Ingreso) && Array.isArray(h.Gasto)) hiddenCats = h;
   } catch (e) { storageOk = false; }
   if (Object.keys(budget).length === 0) { budget = Object.assign({}, SEED); persist(BKEY, budget); }
-  state.movements = movements; state.budget = budget; state.customCats = customCats; state.storageOk = storageOk;
+  state.movements = movements; state.budget = budget; state.customCats = customCats; state.hiddenCats = hiddenCats; state.storageOk = storageOk;
 })();
 
 function shiftMonth(y, m, back){
@@ -938,6 +966,60 @@ function renderDatos(){
   expWrap.appendChild(expTa);
   expCard.appendChild(expWrap);
   root.appendChild(expCard);
+
+  var catCard = el("div", { class: "card" }, [
+    el("h2", { text: "Categorías", style: "margin-bottom:5px" }),
+    el("p", { style: "margin:0 0 12px;font-size:12px;color:var(--muted);text-wrap:pretty", text: "Eliminá las que no uses. Los movimientos ya registrados con esa categoría no se borran, solo deja de aparecer para elegirla de nuevo." })
+  ]);
+  var catWrap = el("div", { style: "display:flex;flex-direction:column;gap:16px" });
+  [["Gasto","Gastos"],["Ingreso","Ingresos"]].forEach(function(pair){
+    var tipo = pair[0];
+    var group = el("div", { style: "display:flex;flex-direction:column;gap:8px" });
+    group.appendChild(el("div", { style: "font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)", text: pair[1] }));
+    var names = allCatsFor(tipo).filter(function(c){ return (state.hiddenCats[tipo]||[]).indexOf(c) === -1; });
+    if (!names.length) {
+      group.appendChild(el("p", { class: "hint", text: "No quedan categorías de " + pair[1].toLowerCase() + "." }));
+    }
+    names.forEach(function(name){
+      var pending = state.catPendingDelete && state.catPendingDelete.tipo === tipo && state.catPendingDelete.name === name
+        ? state.catPendingDelete : null;
+      var rowWrap = el("div", { style: "background:" + (pending ? "var(--red-bg)" : "transparent") + ";border-radius:9px;padding:6px;margin:0 -6px" });
+      var topRow = el("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px" }, [
+        el("span", { style: "font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", text: name }),
+        el("button", { type: "button", class: "x-btn", "aria-label": "Eliminar categoría " + name, text: "🗑", onclick: function(){
+          state.catPendingDelete = { tipo: tipo, name: name, step: 1 }; render();
+        }})
+      ]);
+      rowWrap.appendChild(topRow);
+      if (pending && pending.step === 1) {
+        rowWrap.appendChild(el("div", { style: "margin-top:8px;display:flex;flex-direction:column;gap:8px" }, [
+          el("p", { class: "err", style: "color:var(--red-ink)", text: "¿Eliminar la categoría «" + name + "»?" }),
+          el("div", { class: "grid2" }, [
+            el("button", { type: "button", class: "btn-secondary", text: "Cancelar", onclick: function(){ state.catPendingDelete = null; render(); } }),
+            el("button", { type: "button", class: "btn", style: "background:var(--red)", text: "Sí, eliminar", onclick: function(){
+              state.catPendingDelete = { tipo: tipo, name: name, step: 2 }; render();
+            }})
+          ])
+        ]));
+      } else if (pending && pending.step === 2) {
+        rowWrap.appendChild(el("div", { style: "margin-top:8px;display:flex;flex-direction:column;gap:8px" }, [
+          el("p", { class: "err", style: "color:var(--red-ink)", text: "Confirmá de nuevo: esta acción no se puede deshacer." }),
+          el("div", { class: "grid2" }, [
+            el("button", { type: "button", class: "btn-secondary", text: "Cancelar", onclick: function(){ state.catPendingDelete = null; render(); } }),
+            el("button", { type: "button", class: "btn", style: "background:var(--red)", text: "Eliminar definitivamente", onclick: function(){
+              deleteCat(tipo, name);
+              state.catPendingDelete = null;
+              render();
+            }})
+          ])
+        ]));
+      }
+      group.appendChild(rowWrap);
+    });
+    catWrap.appendChild(group);
+  });
+  catCard.appendChild(catWrap);
+  root.appendChild(catCard);
 
   var stCard = el("div", { class: "card" }, [ el("h2", { text: "Estado", style: "margin-bottom:10px" }) ]);
   var stWrap = el("div", { style: "display:flex;flex-direction:column;gap:7px" });
