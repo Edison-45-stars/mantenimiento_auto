@@ -299,9 +299,9 @@ function renderDetalle(vm) {
   if (!r) return '<div class="detail-head"><button type="button" class="icon-btn" data-action="goBack" aria-label="Volver">' + icon('chevL', 22) + '</button></div>' + emptyState('alert', 'Pieza no encontrada', 'Puede que se haya eliminado.', 'goInicio', 'Ir al inicio');
   const total = r.history.reduce((s, h) => s + h.cost, 0);
   let progress;
-  if (r.status === 'pendiente' || r.status === 'sinplan') {
+  if (r.status === 'pendiente' || r.status === 'sinplan' || r.status === 'noaplica') {
     progress = '<section class="card prog tone-idle"><p class="prog-msg">' + esc(r.dueLabel) + '</p>' +
-      (r.status === 'pendiente' ? '<button type="button" class="btn btn-primary" data-action="quickService" data-id="' + esc(r.id) + '">' + icon('plus', 18) + ' Registrar servicio</button>' : '<button type="button" class="btn btn-primary" data-action="editPlan" data-id="' + esc(r.id) + '">Definir intervalo</button>') + '</section>';
+      (r.status !== 'sinplan' ? '<button type="button" class="btn btn-primary" data-action="quickService" data-id="' + esc(r.id) + '">' + icon('plus', 18) + ' Registrar servicio</button>' : '<button type="button" class="btn btn-primary" data-action="editPlan" data-id="' + esc(r.id) + '">Definir intervalo</button>') + '</section>';
   } else {
     const kmBlock = r.hasKm ? '<div class="metric' + (r.limiting === 'km' ? ' lim' : '') + '"><span class="metric-label">Kilometraje límite</span><span class="metric-value">' + fmtInt(r.nextDueKm) + ' km</span>' +
       '<span class="metric-sub">' + (r.kmRemaining > 0 ? 'faltan ' + fmtInt(r.kmRemaining) + ' km' : (r.kmRemaining === 0 ? 'llegaste al límite' : 'pasado por ' + fmtInt(-r.kmRemaining) + ' km')) + '</span></div>' : '';
@@ -383,9 +383,11 @@ function renderAgregar(vm) {
       field('Kilometraje', 'km', f.km, 'type="number" inputmode="numeric" min="0" step="1" placeholder="0"', e.km) +
       field('Costo ($)', 'cost', f.cost, 'type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"', e.cost) +
     '</div>' +
-    (isNew ? '<div class="form-sub">¿Cada cuánto se repite?</div><div class="form-row">' +
+    (isNew ? '<div class="form-sub">¿Cada cuánto se repite?</div>' +
+      '<label class="check"><input type="checkbox" data-field="noRepeat"' + (f.noRepeat ? ' checked' : '') + '><span>No aplica<small>No se cambia cada cierto tiempo (solo cuando haga falta).</small></span></label>' +
+      (f.noRepeat ? '' : '<div class="form-row">' +
       field('Cada (km)', 'intervalKm', f.intervalKm, 'type="number" inputmode="numeric" min="0" step="1" placeholder="0 si no aplica"', e.intervalKm) +
-      field('Cada (meses)', 'intervalMonths', f.intervalMonths, 'type="number" inputmode="numeric" min="0" step="1" placeholder="0 si no aplica"', e.intervalMonths) + '</div>' : '') +
+      field('Cada (meses)', 'intervalMonths', f.intervalMonths, 'type="number" inputmode="numeric" min="0" step="1" placeholder="0 si no aplica"', e.intervalMonths) + '</div>') : '') +
     '</div>' +
     '<div class="form-actions"><button type="button" class="btn btn-ghost" data-action="cancelForm">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div>' +
     '</form>';
@@ -438,10 +440,12 @@ function renderModal(vm) {
     return sheet('Editar plan',
       field('Nombre', 'piece', d.piece, 'maxlength="80" autocomplete="off"', e.piece, 'm') +
       selectField('Categoría', 'category', CATEGORIES.map(c => ({ value: c, label: c })), d.category, null, 'm') +
-      '<div class="form-sub">¿Cada cuánto se repite?</div><div class="form-row">' +
+      '<div class="form-sub">¿Cada cuánto se repite?</div>' +
+      '<label class="check"><input type="checkbox" data-mfield="noRepeat"' + (d.noRepeat ? ' checked' : '') + '><span>No aplica<small>No se cambia cada cierto tiempo (solo cuando haga falta).</small></span></label>' +
+      (d.noRepeat ? '' : '<div class="form-row">' +
       field('Cada (km)', 'intervalKm', d.intervalKm, 'type="number" inputmode="numeric" min="0" step="1" placeholder="0 si no aplica"', e.intervalKm, 'm') +
       field('Cada (meses)', 'intervalMonths', d.intervalMonths, 'type="number" inputmode="numeric" min="0" step="1" placeholder="0 si no aplica"', e.intervalMonths, 'm') + '</div>' +
-      '<p class="field-hint block">Si defines ambos, vence lo que ocurra primero.</p>' +
+      '<p class="field-hint block">Si defines ambos, vence lo que ocurra primero.</p>') +
       '<div class="form-actions"><button type="button" class="btn btn-ghost" data-action="closeModal">Cancelar</button><button type="button" class="btn btn-primary" data-action="savePlan">Guardar</button></div>');
   }
   if (m.type === 'service') {

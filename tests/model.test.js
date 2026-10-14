@@ -243,4 +243,27 @@ test('genera eventos válidos solo para piezas con fecha estimada', () => {
   for (const line of ics.text.split('\r\n')) assert.ok(line.length <= 75, 'línea larga: ' + line.length);
 });
 
+console.log('No aplica');
+test('una pieza "No aplica" no exige intervalo, no vence y no cuenta como pendiente', () => {
+  const v = M.createVehicle({ name: 'T', plate: '', currentKm: 1000 }, false, NOW);
+  const f = { piece: 'Amortiguadores', category: 'Suspensión', date: '2026-01-10', km: 900, cost: 100, noRepeat: true, intervalKm: 0, intervalMonths: 0 };
+  assert.deepEqual(M.validateService(f, v, NOW, {}), {});
+  assert.ok(M.validateService(Object.assign({}, f, { noRepeat: false }), v, NOW, {}).intervalMonths);
+  M.addService(v, f, NOW);
+  const S2 = M.computeVehicle(v, NOW), r = S2.items[0];
+  assert.equal(r.status, 'noaplica');
+  assert.equal(S2.count.noaplica, 1);
+  assert.equal(S2.tracked, 0);
+  assert.equal(S2.attention.length, 0);
+  assert.equal(S2.totalSpend, 100);
+  assert.equal(r.annualCost, null);
+});
+test('editar el plan a "No aplica" borra los intervalos', () => {
+  const v = M.createVehicle({ name: 'T', plate: '', currentKm: 1000 }, true, NOW);
+  const it = v.items[0];
+  assert.deepEqual(M.validatePlan({ piece: it.piece, noRepeat: true }, v, it.id), {});
+  M.updatePlan(v, it.id, { piece: it.piece, category: it.category, noRepeat: true, intervalKm: 5000, intervalMonths: 6 }, NOW);
+  assert.equal(it.noRepeat, true); assert.equal(it.intervalKm, 0); assert.equal(it.intervalMonths, 0);
+});
+
 console.log('\n' + passed + ' pruebas pasaron' + (process.exitCode ? ' — HAY FALLOS' : ''));

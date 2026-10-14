@@ -5,7 +5,7 @@ const appEl = document.getElementById('app');
 const toastEl = document.getElementById('toast');
 
 function blankForm(v) {
-  return { itemId: '__new', piece: '', category: 'Motor', date: todayIso(), km: v ? v.currentKm : '', cost: '', intervalKm: 5000, intervalMonths: 6 };
+  return { noRepeat: false, itemId: '__new', piece: '', category: 'Motor', date: todayIso(), km: v ? v.currentKm : '', cost: '', intervalKm: 5000, intervalMonths: 6 };
 }
 function newAdd(v) {
   return { step: 'start', f: blankForm(v), errors: {}, photo: null, ocrNote: null, doneItemId: null };
@@ -276,7 +276,7 @@ function deleteServiceAction(itemId, historyId) {
 function editPlan(id) {
   const item = currentVehicle().items.find(i => i.id === id);
   if (!item) return;
-  setState({ modal: { type: 'plan', itemId: id, errors: {}, autofocus: true, data: { piece: item.piece, category: item.category, intervalKm: item.intervalKm, intervalMonths: item.intervalMonths, note: item.note } } });
+  setState({ modal: { type: 'plan', itemId: id, errors: {}, autofocus: true, data: { piece: item.piece, category: item.category, intervalKm: item.intervalKm, intervalMonths: item.intervalMonths, noRepeat: !!item.noRepeat, note: item.note } } });
 }
 async function savePlan() {
   const m = state.modal, v = currentVehicle();
@@ -422,7 +422,7 @@ async function saveAddForm() {
   const ok = await mutate(c => {
     const r = addService(c, {
       itemId: existing ? existing.id : null, piece: f.piece, category: f.category,
-      intervalKm: f.intervalKm, intervalMonths: f.intervalMonths,
+      intervalKm: f.intervalKm, intervalMonths: f.intervalMonths, noRepeat: !!f.noRepeat,
       date: f.date, km: f.km, cost: f.cost, photo: a.photo || undefined,
     }, now);
     doneId = r.item.id;
@@ -594,6 +594,7 @@ appEl.addEventListener('click', e => {
 appEl.addEventListener('input', e => {
   const t = e.target;
   if (t.dataset.field) {
+    if (t.type === 'checkbox') return;
     state.add.f[t.dataset.field] = t.value;
   } else if (t.dataset.mfield && state.modal && state.modal.data) {
     state.modal.data[t.dataset.mfield] = t.type === 'checkbox' ? t.checked : t.value;
@@ -615,6 +616,14 @@ appEl.addEventListener('change', e => {
     tpl.innerHTML = renderApp(computeViewModel());
     const next = tpl.content.querySelector('#svcDyn');
     if (live && next) live.innerHTML = next.innerHTML; else render();
+  } else if (t.dataset.field === 'noRepeat') {
+    state.add.f.noRepeat = t.checked;
+    state.add.errors = {};
+    const live = appEl.querySelector('#svcDyn');
+    const tpl = document.createElement('template');
+    tpl.innerHTML = renderApp(computeViewModel());
+    const next = tpl.content.querySelector('#svcDyn');
+    if (live && next) live.innerHTML = next.innerHTML; else render();
   } else if (t.dataset.field === 'piece') {
     // Si elige una sugerencia de la plantilla, completamos categoría e intervalos (editables).
     const f = state.add.f, tpl = TEMPLATE_ITEMS.find(x => slug(x.piece) === slug(t.value));
@@ -625,6 +634,7 @@ appEl.addEventListener('change', e => {
     }
   } else if (t.dataset.mfield && state.modal && state.modal.data) {
     state.modal.data[t.dataset.mfield] = t.type === 'checkbox' ? t.checked : t.value;
+    if (t.dataset.mfield === 'noRepeat' && state.modal.type === 'plan') { state.modal.errors = {}; render(); }
   }
 });
 

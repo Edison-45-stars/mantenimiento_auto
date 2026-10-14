@@ -58,6 +58,7 @@ const STATUS_META = {
   ok: { label: 'Al día', tone: 'ok' },
   pendiente: { label: 'Sin registro', tone: 'idle' },
   sinplan: { label: 'Sin intervalo', tone: 'idle' },
+  noaplica: { label: 'No aplica', tone: 'idle' },
 };
 
 /* ---------- Utilidades de fecha y formato ---------- */
@@ -140,8 +141,9 @@ function normalizeItem(it, now) {
     id: (it && it.id) ? String(it.id) : uid('i'),
     piece: String((it && it.piece) || 'Mantenimiento').trim().slice(0, 80) || 'Mantenimiento',
     category: CATEGORIES.includes(it && it.category) ? it.category : 'Otros',
-    intervalKm: clampInt(it && it.intervalKm, 1e6),
-    intervalMonths: clampInt(it && it.intervalMonths, 600),
+    noRepeat: !!(it && it.noRepeat),
+    intervalKm: (it && it.noRepeat) ? 0 : clampInt(it && it.intervalKm, 1e6),
+    intervalMonths: (it && it.noRepeat) ? 0 : clampInt(it && it.intervalMonths, 600),
     note: String((it && it.note) || '').slice(0, 300),
     history: Array.isArray(it && it.history) ? it.history.map(h => normalizeEntry(h, now)) : [],
   };
@@ -267,6 +269,7 @@ function maxServiceKm(vehicle) {
 /* ---------- Cálculo por pieza y por vehículo ---------- */
 
 function lifespanLabel(item) {
+  if (item.noRepeat) return 'Sin cambio periódico';
   const parts = [];
   if (item.intervalKm > 0) parts.push(fmtInt(item.intervalKm) + ' km');
   if (item.intervalMonths > 0) parts.push(item.intervalMonths + ' meses');
@@ -292,6 +295,10 @@ function computeItem(item, vehicle, ctx) {
     return out;
   };
 
+  if (item.noRepeat) {
+    const d = last && parseLocalDate(last.date);
+    return finish('noaplica', last ? 'Último servicio: ' + (d ? fmtDate(d) : last.date) + ' · ' + fmtInt(last.km) + ' km' : 'Sin cambio periódico · sin servicios registrados', 'No aplica');
+  }
   if (!hasKm && !hasTime) return finish('sinplan', 'Define cada cuánto se repite', 'Sin intervalo');
   if (!last) return finish('pendiente', 'Registra su último servicio para activar los avisos', 'Sin registro');
 
@@ -384,7 +391,7 @@ function computeVehicle(vehicle, now) {
   const items = vehicle.items.map(i => computeItem(i, vehicle, ctx));
   items.sort((a, b) => b.progress - a.progress || a.piece.localeCompare(b.piece, 'es'));
 
-  const count = { vencido: 0, pronto: 0, ok: 0, pendiente: 0, sinplan: 0 };
+  const count = { vencido: 0, pronto: 0, ok: 0, pendiente: 0, sinplan: 0, noaplica: 0 };
   items.forEach(i => { count[i.status]++; });
   const tracked = count.vencido + count.pronto + count.ok;
   const spend = vehicle.items.reduce((s, it) => s + it.history.reduce((t, h) => t + h.cost, 0), 0);
@@ -427,7 +434,7 @@ function validateService(f, vehicle, now, opts) {
   if (!o.existingItem) {
     if (num(f.intervalKm) < 0) errors.intervalKm = 'No puede ser negativo.';
     if (num(f.intervalMonths) < 0) errors.intervalMonths = 'No puede ser negativo.';
-    if (!(num(f.intervalKm) > 0) && !(num(f.intervalMonths) > 0)) errors.intervalMonths = 'Define cada cuántos km o meses se repite.';
+    if (!f.noRepeat && !(num(f.intervalKm) > 0) && !(num(f.intervalMonths) > 0)) errors.intervalMonths = 'Define cada cuántos km o meses, o marca "No aplica".';
   }
   return errors;
 }
@@ -439,7 +446,7 @@ function addService(vehicle, f, now) {
   if (!item) {
     item = normalizeItem({
       id: uid('i'), piece: f.piece, category: f.category, note: f.note || '',
-      intervalKm: f.intervalKm, intervalMonths: f.intervalMonths, history: [],
+      intervalKm: f.intervalKm, intervalMonths: f.intervalMonths, noRepeat: !!f.noRepeat, history: [],
     }, now);
     vehicle.items.push(item);
   }
@@ -473,8 +480,8 @@ function deleteService(vehicle, itemId, historyId) {
 function updatePlan(vehicle, itemId, p, now) {
   const item = vehicle.items.find(i => i.id === itemId);
   if (!item) return null;
-  const n = normalizeItem({ id: item.id, piece: p.piece, category: p.category, note: p.note, intervalKm: p.intervalKm, intervalMonths: p.intervalMonths, history: item.history }, now);
-  Object.assign(item, { piece: n.piece, category: n.category, note: n.note, intervalKm: n.intervalKm, intervalMonths: n.intervalMonths });
+  const n = normalizeItem({ id: item.id, piece: p.piece, category: p.category, note: p.note, noRepeat: !!p.noRepeat, intervalKm: p.intervalKm, intervalMonths: p.intervalMonths, history: item.history }, now);
+  Object.assign(item, { piece: n.piece, category: n.category, note: n.note, noRepeat: n.noRepeat, intervalKm: n.intervalKm, intervalMonths: n.intervalMonths });
   return item;
 }
 
@@ -487,7 +494,7 @@ function validatePlan(p, vehicle, itemId) {
   }
   if (num(p.intervalKm) < 0) errors.intervalKm = 'No puede ser negativo.';
   if (num(p.intervalMonths) < 0) errors.intervalMonths = 'No puede ser negativo.';
-  if (!(num(p.intervalKm) > 0) && !(num(p.intervalMonths) > 0)) errors.intervalMonths = 'Define cada cuántos km o meses se repite.';
+  if (!p.noRepeat && !(num(p.intervalKm) > 0) && !(num(p.intervalMonths) > 0)) errors.intervalMonths = 'Define cada cuántos km o meses, o marca "No aplica".';
   return errors;
 }
 
