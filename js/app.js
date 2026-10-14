@@ -537,6 +537,7 @@ const actions = {
   goHistorial: () => goTab('historial'),
   goProximos: () => goTab('proximos'),
   goAgregar: () => goTab('agregar'),
+  finishAdd: () => setState({ tab: 'inicio', add: newAdd(currentVehicle()) }),
   goBack: () => leaveDetail(),
   openDetail: c => openDetail(c.id),
   toggleVehiclePicker: () => setState({ pickerOpen: !state.pickerOpen }),

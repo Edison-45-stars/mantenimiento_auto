@@ -356,7 +356,8 @@ function renderAgregar(vm) {
     const r = S.byId[a.doneItemId];
     return '<div class="done"><div class="done-check">' + icon('check', 34) + '</div><h2>¡Guardado!</h2>' +
       (r ? '<p class="lead"><b>' + esc(r.piece) + '</b>: ' + esc(r.statusLabel.toLowerCase()) + '. ' + esc(r.dueLabel) + '.</p>' : '<p class="lead">Se agregó a tu historial.</p>') +
-      '<div class="done-actions">' + (r ? '<button type="button" class="btn btn-primary" data-action="openDetail" data-id="' + esc(r.id) + '">Ver pieza</button>' : '') +
+      '<div class="done-actions"><button type="button" class="btn btn-primary" data-action="finishAdd">Listo</button>' +
+      (r ? '<button type="button" class="btn btn-ghost" data-action="openDetail" data-id="' + esc(r.id) + '">Ver pieza</button>' : '') +
       '<button type="button" class="btn btn-ghost" data-action="resetAdd">Registrar otro</button></div></div>';
   }
   // Formulario
