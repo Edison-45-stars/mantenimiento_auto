@@ -61,7 +61,7 @@ function computeViewModel() {
 function render() {
   const active = document.activeElement;
   let keep = null;
-  if (active && appEl.contains(active) && active.matches && active.matches('[data-field],[data-mfield]') && active.type !== 'checkbox') {
+  if (active && appEl.contains(active) && active.matches && active.matches('[data-field],[data-mfield]') && active.type !== 'checkbox' && active.tagName !== 'SELECT') {
     const attr = active.hasAttribute('data-field') ? 'data-field' : 'data-mfield';
     keep = { attr, name: active.getAttribute(attr), s: null, e: null };
     try { keep.s = active.selectionStart; keep.e = active.selectionEnd; } catch (err) { /* input type=number */ }
@@ -604,6 +604,7 @@ appEl.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.field === 'itemId') {
     const f = state.add.f, v = currentVehicle();
+    t.blur(); // en iOS, refocalizar el selector tras re-renderizar lo vuelve a abrir
     f.itemId = t.value;
     const it = v && v.items.find(i => i.id === t.value);
     if (it && it.history[0] && (f.cost === '' || f.cost == null)) f.cost = it.history[0].cost;

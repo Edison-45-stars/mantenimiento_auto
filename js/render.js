@@ -364,7 +364,7 @@ function renderAgregar(vm) {
   const f = a.f, e = a.errors || {};
   const existing = f.itemId && f.itemId !== '__new' ? S.byId[f.itemId] : null;
   const isNew = !existing;
-  const opts = [{ value: '__new', label: '＋ Otro: nueva pieza o servicio' }]
+  const opts = [{ value: '__new', label: '＋ Otra pieza o servicio' }]
     .concat(S.items.slice().sort((x, y) => x.piece.localeCompare(y.piece, 'es')).map(i => ({ value: i.id, label: i.piece })));
   const have = new Set(S.items.map(i => slug(i.piece)));
   const suggest = TEMPLATE_ITEMS.filter(t => !have.has(slug(t.piece))).map(t => '<option value="' + esc(t.piece) + '"></option>').join('');
