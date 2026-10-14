@@ -1,4 +1,9 @@
-// Capa de persistencia real (IndexedDB). Reemplaza el estado en memoria del prototipo.
+'use strict';
+/* Persistencia local con IndexedDB.
+   - Escrituras confirmadas en tx.oncomplete (no antes), para no perder datos al cerrar la app.
+   - Antes de migrar de v1 a v2 se guarda una copia intacta en meta['preMigrationBackup'].
+   - Si IndexedDB no está disponible (p. ej. modo privado), la app sigue en memoria y avisa. */
+
 const DB_NAME = 'mantenimiento-auto';
 const DB_VERSION = 1;
 const STORE_VEHICLES = 'vehicles';
@@ -6,99 +11,102 @@ const STORE_META = 'meta';
 
 function openDb() {
   return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') { reject(new Error('IndexedDB no disponible')); return; }
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
-      if (!db.objectStoreNames.contains(STORE_VEHICLES)) {
-        db.createObjectStore(STORE_VEHICLES, { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains(STORE_META)) {
-        db.createObjectStore(STORE_META, { keyPath: 'key' });
-      }
+      if (!db.objectStoreNames.contains(STORE_VEHICLES)) db.createObjectStore(STORE_VEHICLES, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(STORE_META)) db.createObjectStore(STORE_META, { keyPath: 'key' });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error('Base de datos bloqueada por otra pestaña'));
   });
 }
 
-function tx(db, store, mode) {
-  return db.transaction(store, mode).objectStore(store);
+function idbWrite(db, stores, fn) {
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(stores, 'readwrite');
+    fn(t);
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error || new Error('Transacción cancelada'));
+  });
 }
 
-const SEED_VEHICLES = [
-  { id: 'aveo', name: 'Chevrolet Aveo Activo 2011', plate: 'PCA-0456', currentKm: 138000, records: [
-    { id: 'aceite', piece: 'Aceite y filtro de motor', category: 'Motor', lastDate: '2026-05-20', lastKm: 135000, intervalKm: 5000, intervalMonths: 6, cost: 28, note: 'Lubrica el motor y evita el desgaste prematuro de sus componentes internos.' },
-    { id: 'filtroaire', piece: 'Filtro de aire', category: 'Motor', lastDate: '2025-06-01', lastKm: 128000, intervalKm: 10000, intervalMonths: 12, cost: 14, note: 'Filtra el aire que entra al motor; si se satura, reduce el rendimiento y aumenta el consumo.' },
-    { id: 'pastillas', piece: 'Pastillas de freno delanteras', category: 'Frenos', lastDate: '2025-09-10', lastKm: 110000, intervalKm: 30000, intervalMonths: 24, cost: 50, note: 'Se desgastan por fricción al frenar; son críticas para la seguridad del vehículo.' },
-    { id: 'bateria', piece: 'Batería', category: 'Eléctrico', lastDate: '2024-03-15', lastKm: 120000, intervalKm: 0, intervalMonths: 36, cost: 85, note: 'Pierde capacidad de carga con el tiempo y el calor; revisar antes de un viaje largo.' },
-    { id: 'llantas', piece: 'Llantas (juego de 4)', category: 'Suspensión', lastDate: '2024-10-01', lastKm: 100000, intervalKm: 45000, intervalMonths: 48, cost: 300, note: 'El desgaste de la banda de rodadura afecta la tracción y la distancia de frenado.' },
-    { id: 'correa', piece: 'Correa de distribución', category: 'Motor', lastDate: '2022-01-10', lastKm: 90000, intervalKm: 90000, intervalMonths: 72, cost: 150, note: 'Si se rompe en marcha puede dañar el motor gravemente; no conviene retrasarla.' },
-    { id: 'bujias', piece: 'Bujías', category: 'Motor', lastDate: '2025-01-05', lastKm: 118000, intervalKm: 20000, intervalMonths: 24, cost: 32, note: 'Encienden la mezcla aire-combustible; si fallan, sube el consumo y baja la potencia.' },
-    { id: 'liquidofreno', piece: 'Líquido de frenos', category: 'Frenos', lastDate: '2024-02-01', lastKm: 116000, intervalKm: 0, intervalMonths: 24, cost: 18, note: 'Absorbe humedad con el tiempo, lo que reduce la eficacia del sistema de frenos.' },
-    { id: 'filtrocomb', piece: 'Filtro de combustible', category: 'Motor', lastDate: '2025-11-01', lastKm: 130000, intervalKm: 20000, intervalMonths: 24, cost: 22, note: 'Evita que impurezas del combustible lleguen al motor.' },
-  ] },
-  { id: 'corolla', name: 'Toyota Corolla 2019', plate: 'PBX-1234', currentKm: 68500, records: [
-    { id: 'aceite2', piece: 'Aceite y filtro de motor', category: 'Motor', lastDate: '2026-05-10', lastKm: 65000, intervalKm: 5000, intervalMonths: 6, cost: 32, note: 'Lubrica el motor y evita el desgaste prematuro de sus componentes internos.' },
-    { id: 'filtroaire2', piece: 'Filtro de aire', category: 'Motor', lastDate: '2025-08-15', lastKm: 60000, intervalKm: 10000, intervalMonths: 12, cost: 16, note: 'Filtra el aire que entra al motor; si se satura, reduce el rendimiento y aumenta el consumo.' },
-    { id: 'pastillas2', piece: 'Pastillas de freno delanteras', category: 'Frenos', lastDate: '2025-11-01', lastKm: 40000, intervalKm: 30000, intervalMonths: 24, cost: 65, note: 'Se desgastan por fricción al frenar; son críticas para la seguridad del vehículo.' },
-    { id: 'bateria2', piece: 'Batería', category: 'Eléctrico', lastDate: '2024-06-20', lastKm: 45000, intervalKm: 60000, intervalMonths: 36, cost: 95, note: 'Pierde capacidad de carga con el tiempo y el calor; revisar antes de un viaje largo.' },
-    { id: 'llantas2', piece: 'Llantas (juego de 4)', category: 'Suspensión', lastDate: '2025-01-15', lastKm: 38000, intervalKm: 45000, intervalMonths: 48, cost: 380, note: 'El desgaste de la banda de rodadura afecta la tracción y la distancia de frenado.' },
-    { id: 'correa2', piece: 'Correa de distribución', category: 'Motor', lastDate: '2023-03-10', lastKm: 20000, intervalKm: 90000, intervalMonths: 60, cost: 180, note: 'Si se rompe en marcha puede dañar el motor gravemente; no conviene retrasarla.' },
-    { id: 'bujias2', piece: 'Bujías', category: 'Motor', lastDate: '2025-02-01', lastKm: 42000, intervalKm: 30000, intervalMonths: 24, cost: 42, note: 'Encienden la mezcla aire-combustible; si fallan, sube el consumo y baja la potencia.' },
-    { id: 'liquidofreno2', piece: 'Líquido de frenos', category: 'Frenos', lastDate: '2024-08-01', lastKm: 44000, intervalKm: 0, intervalMonths: 24, cost: 22, note: 'Absorbe humedad con el tiempo, lo que reduce la eficacia del sistema de frenos.' },
-    { id: 'filtrocomb2', piece: 'Filtro de combustible', category: 'Motor', lastDate: '2025-09-05', lastKm: 61000, intervalKm: 20000, intervalMonths: 24, cost: 28, note: 'Evita que impurezas del combustible lleguen al motor.' },
-  ] },
-];
+function idbRead(db, store, fn) {
+  return new Promise((resolve, reject) => {
+    const r = fn(db.transaction(store, 'readonly').objectStore(store));
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
 
 const Store = {
+  db: null,
+  persistent: false,
+  mem: { vehicles: new Map(), meta: new Map() },
+
   async init() {
-    this.db = await openDb();
-    const existing = await this.getAllVehicles();
-    if (existing.length === 0) {
-      for (const v of SEED_VEHICLES) await this.putVehicle(v);
-      await this.setMeta('currentVehicleId', 'aveo');
+    try {
+      this.db = await openDb();
+      this.persistent = true;
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    } catch (e) {
+      this.db = null;
+      this.persistent = false;
+    }
+    const raw = await this.getAllRaw();
+    if (raw.some(needsMigration)) {
+      // Copia de seguridad intacta de lo que había antes de tocar nada (solo la primera vez).
+      if (!(await this.getMeta('preMigrationBackup'))) {
+        await this.setMeta('preMigrationBackup', { at: new Date().toISOString(), vehicles: raw });
+      }
+      const migrated = raw.map(v => migrateVehicle(v));
+      await this.replaceAll(migrated, await this.getMeta('currentVehicleId'));
     }
   },
-  getAllVehicles() {
-    return new Promise((resolve, reject) => {
-      const req = tx(this.db, STORE_VEHICLES, 'readonly').getAll();
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+
+  async getAllRaw() {
+    if (!this.db) return Array.from(this.mem.vehicles.values());
+    return idbRead(this.db, STORE_VEHICLES, s => s.getAll());
+  },
+  async getAllVehicles() {
+    return (await this.getAllRaw()).map(v => migrateVehicle(v));
+  },
+
+  async putVehicle(vehicle) {
+    if (!this.db) { this.mem.vehicles.set(vehicle.id, JSON.parse(JSON.stringify(vehicle))); return; }
+    await idbWrite(this.db, [STORE_VEHICLES], t => t.objectStore(STORE_VEHICLES).put(vehicle));
+  },
+  async deleteVehicle(id) {
+    if (!this.db) { this.mem.vehicles.delete(id); return; }
+    await idbWrite(this.db, [STORE_VEHICLES], t => t.objectStore(STORE_VEHICLES).delete(id));
+  },
+
+  // Reemplaza todo en una sola transacción: o queda todo, o no cambia nada.
+  async replaceAll(vehicles, currentVehicleId) {
+    const id = vehicles.some(v => v.id === currentVehicleId) ? currentVehicleId : (vehicles[0] && vehicles[0].id);
+    if (!this.db) {
+      this.mem.vehicles = new Map(vehicles.map(v => [v.id, JSON.parse(JSON.stringify(v))]));
+      this.mem.meta.set('currentVehicleId', id);
+      return;
+    }
+    await idbWrite(this.db, [STORE_VEHICLES, STORE_META], t => {
+      const vs = t.objectStore(STORE_VEHICLES);
+      vs.clear();
+      vehicles.forEach(v => vs.put(v));
+      if (id) t.objectStore(STORE_META).put({ key: 'currentVehicleId', value: id });
     });
   },
-  putVehicle(vehicle) {
-    return new Promise((resolve, reject) => {
-      const req = tx(this.db, STORE_VEHICLES, 'readwrite').put(vehicle);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+
+  async getMeta(key) {
+    if (!this.db) return this.mem.meta.get(key);
+    const r = await idbRead(this.db, STORE_META, s => s.get(key));
+    return r ? r.value : undefined;
   },
-  deleteVehicle(id) {
-    return new Promise((resolve, reject) => {
-      const req = tx(this.db, STORE_VEHICLES, 'readwrite').delete(id);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  },
-  getMeta(key) {
-    return new Promise((resolve, reject) => {
-      const req = tx(this.db, STORE_META, 'readonly').get(key);
-      req.onsuccess = () => resolve(req.result ? req.result.value : undefined);
-      req.onerror = () => reject(req.error);
-    });
-  },
-  setMeta(key, value) {
-    return new Promise((resolve, reject) => {
-      const req = tx(this.db, STORE_META, 'readwrite').put({ key, value });
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  },
-  clearVehicles() {
-    return new Promise((resolve, reject) => {
-      const req = tx(this.db, STORE_VEHICLES, 'readwrite').clear();
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+  async setMeta(key, value) {
+    if (!this.db) { this.mem.meta.set(key, value); return; }
+    await idbWrite(this.db, [STORE_META], t => t.objectStore(STORE_META).put({ key, value }));
   },
 };
