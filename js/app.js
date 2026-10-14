@@ -604,12 +604,17 @@ appEl.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.field === 'itemId') {
     const f = state.add.f, v = currentVehicle();
-    t.blur(); // en iOS, refocalizar el selector tras re-renderizar lo vuelve a abrir
     f.itemId = t.value;
     const it = v && v.items.find(i => i.id === t.value);
     if (it && it.history[0] && (f.cost === '' || f.cost == null)) f.cost = it.history[0].cost;
     state.add.errors = {};
-    render();
+    // Solo se redibuja el resto del formulario: si se reemplaza el <select> mientras el
+    // selector nativo de iOS está abierto, éste no se cierra y hace falta un segundo toque.
+    const live = appEl.querySelector('#svcDyn');
+    const tpl = document.createElement('template');
+    tpl.innerHTML = renderApp(computeViewModel());
+    const next = tpl.content.querySelector('#svcDyn');
+    if (live && next) live.innerHTML = next.innerHTML; else render();
   } else if (t.dataset.field === 'piece') {
     // Si elige una sugerencia de la plantilla, completamos categoría e intervalos (editables).
     const f = state.add.f, tpl = TEMPLATE_ITEMS.find(x => slug(x.piece) === slug(t.value));

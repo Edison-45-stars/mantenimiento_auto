@@ -373,6 +373,7 @@ function renderAgregar(vm) {
   return '<h1 class="screen-title">' + title + '</h1>' + note + photo +
     '<form class="card form" data-form="service" novalidate>' +
     selectField('Pieza o servicio', 'itemId', opts, f.itemId || '__new', null) +
+    '<div class="dyn" id="svcDyn">' +
     (isNew ? '<p class="form-sub">Escribe el nombre que quieras (ej. Amortiguadores, Lavado de inyectores) o elige una sugerencia.</p>' +
       field('Nombre del servicio o pieza', 'piece', f.piece, 'list="pieceSuggest" placeholder="Ej. Amortiguadores" autocomplete="off" maxlength="80"', e.piece) +
       '<datalist id="pieceSuggest">' + suggest + '</datalist>' +
@@ -385,6 +386,7 @@ function renderAgregar(vm) {
     (isNew ? '<div class="form-sub">¿Cada cuánto se repite?</div><div class="form-row">' +
       field('Cada (km)', 'intervalKm', f.intervalKm, 'type="number" inputmode="numeric" min="0" step="1" placeholder="0 si no aplica"', e.intervalKm) +
       field('Cada (meses)', 'intervalMonths', f.intervalMonths, 'type="number" inputmode="numeric" min="0" step="1" placeholder="0 si no aplica"', e.intervalMonths) + '</div>' : '') +
+    '</div>' +
     '<div class="form-actions"><button type="button" class="btn btn-ghost" data-action="cancelForm">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div>' +
     '</form>';
 }
