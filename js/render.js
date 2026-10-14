@@ -363,14 +363,18 @@ function renderAgregar(vm) {
   const f = a.f, e = a.errors || {};
   const existing = f.itemId && f.itemId !== '__new' ? S.byId[f.itemId] : null;
   const isNew = !existing;
-  const opts = S.items.slice().sort((x, y) => x.piece.localeCompare(y.piece, 'es')).map(i => ({ value: i.id, label: i.piece }))
-    .concat([{ value: '__new', label: 'Otra pieza o servicio…' }]);
+  const opts = [{ value: '__new', label: '＋ Otro: nueva pieza o servicio' }]
+    .concat(S.items.slice().sort((x, y) => x.piece.localeCompare(y.piece, 'es')).map(i => ({ value: i.id, label: i.piece })));
+  const have = new Set(S.items.map(i => slug(i.piece)));
+  const suggest = TEMPLATE_ITEMS.filter(t => !have.has(slug(t.piece))).map(t => '<option value="' + esc(t.piece) + '"></option>').join('');
   const photo = a.photo ? '<div class="photo-prev"><img src="' + esc(a.photo) + '" alt="Foto de la factura"><button type="button" class="icon-btn sm" data-action="removePhoto" aria-label="Quitar foto">' + icon('close', 16) + '</button></div>' : '';
   const note = a.ocrNote ? '<div class="callout ' + esc(a.ocrNote.kind) + '">' + icon(a.ocrNote.kind === 'ok' ? 'check' : 'info', 18) + '<span>' + esc(a.ocrNote.text) + '</span></div>' : '';
   return '<h1 class="screen-title">' + title + '</h1>' + note + photo +
     '<form class="card form" data-form="service" novalidate>' +
     selectField('Pieza o servicio', 'itemId', opts, f.itemId || '__new', null) +
-    (isNew ? field('Nombre', 'piece', f.piece, 'placeholder="Ej. Cambio de aceite" autocomplete="off" maxlength="80"', e.piece) +
+    (isNew ? '<p class="form-sub">Escribe el nombre que quieras (ej. Amortiguadores, Lavado de inyectores) o elige una sugerencia.</p>' +
+      field('Nombre del servicio o pieza', 'piece', f.piece, 'list="pieceSuggest" placeholder="Ej. Amortiguadores" autocomplete="off" maxlength="80"', e.piece) +
+      '<datalist id="pieceSuggest">' + suggest + '</datalist>' +
       selectField('Categoría', 'category', CATEGORIES.map(c => ({ value: c, label: c })), f.category || 'Motor', null) : '') +
     field('Fecha del servicio', 'date', f.date, 'type="date" max="' + esc(todayIso()) + '"', e.date) +
     '<div class="form-row">' +

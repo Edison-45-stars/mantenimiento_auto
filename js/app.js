@@ -608,6 +608,14 @@ appEl.addEventListener('change', e => {
     if (it && it.history[0] && (f.cost === '' || f.cost == null)) f.cost = it.history[0].cost;
     state.add.errors = {};
     render();
+  } else if (t.dataset.field === 'piece') {
+    // Si elige una sugerencia de la plantilla, completamos categoría e intervalos (editables).
+    const f = state.add.f, tpl = TEMPLATE_ITEMS.find(x => slug(x.piece) === slug(t.value));
+    if (tpl) {
+      f.category = tpl.category;
+      f.intervalKm = tpl.intervalKm; f.intervalMonths = tpl.intervalMonths;
+      render();
+    }
   } else if (t.dataset.mfield && state.modal && state.modal.data) {
     state.modal.data[t.dataset.mfield] = t.type === 'checkbox' ? t.checked : t.value;
   }

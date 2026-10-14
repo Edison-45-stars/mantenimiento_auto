@@ -391,7 +391,7 @@ input[type=date] { min-width: 0; }
 .tab-add .tab-ic { width: 52px; height: 52px; margin-top: -26px; border-radius: 50%; color: var(--accent-ink); background: linear-gradient(145deg, #F7B654, var(--accent)); box-shadow: 0 10px 20px -8px rgba(242, 163, 58, .8), 0 0 0 5px var(--bg); }
 .tab-add.active .tab-ic { background: linear-gradient(145deg, #F7B654, var(--accent)); }
 .tab-add { color: var(--ink-3); }
-.tab-add .tab-label { position: relative; top: -4px; }
+.tab-add .tab-label { position: relative; top: 4px; }
 .tab-add.active { color: var(--tab-on); }
 .tab-dot { position: absolute; top: -4px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; font-size: 10.5px; font-weight: 800; color: #fff; background: var(--late-bar); box-shadow: 0 0 0 2px var(--surface); }
 
