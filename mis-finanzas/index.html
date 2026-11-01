@@ -196,6 +196,7 @@ var MKEY = "misFinanzas.movimientos.v1";
 var BKEY = "misFinanzas.presupuesto.v1";
 var CKEY = "misFinanzas.categoriasExtra.v1";
 var HKEY = "misFinanzas.categoriasOcultas.v1";
+var SKEY = "misFinanzas.sync.v1";
 var COMPARE_BASE = "Mes anterior";
 
 var fUSD = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
@@ -220,6 +221,7 @@ var state = {
   customCats: { Ingreso: [], Gasto: [] },
   hiddenCats: { Ingreso: [], Gasto: [] },
   catPendingDelete: null,
+  syncUrl: "", syncToken: "", syncEnabled: false, syncStatus: "", syncBusy: false,
   fTipo: "Gasto", fCat: CATS.Gasto[0], fFrec: "Variable", fDesc: "", fMonto: "", fCatNueva: "", addError: false, editId: null,
   fFecha: now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0"),
   bCat: "Alimentación", bMonto: "", bNombre: "", bEditKey: null, bError: "",
@@ -266,8 +268,37 @@ function deleteCat(tipo, name){
   if (tipo === "Gasto" && state.bCat === name) state.bCat = catsFor("Gasto")[0] || "__nueva__";
 }
 
+function saveSyncConfig(){
+  persist(SKEY, { url: state.syncUrl, token: state.syncToken, enabled: state.syncEnabled });
+}
+function syncSend(payload){
+  if (!state.syncEnabled || !state.syncUrl) return;
+  payload.token = state.syncToken;
+  try {
+    fetch(state.syncUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    }).catch(function(){});
+  } catch (e) {}
+}
+function syncMovement(action, movimiento){
+  syncSend({ action: action, movimiento: movimiento });
+}
+function syncAll(){
+  if (!state.syncUrl) { state.syncStatus = "Falta la URL del script."; render(); return; }
+  state.syncBusy = true; state.syncStatus = "Enviando…"; render();
+  syncSend({ action: "sync_all", movimientos: state.movements });
+  setTimeout(function(){
+    state.syncBusy = false;
+    state.syncStatus = "Enviado ✓ — revisá tu Google Sheet para confirmar que llegó.";
+    render();
+  }, 1200);
+}
+
 (function init(){
-  var movements = [], budget = {}, customCats = { Ingreso: [], Gasto: [] }, hiddenCats = { Ingreso: [], Gasto: [] }, storageOk = true;
+  var movements = [], budget = {}, customCats = { Ingreso: [], Gasto: [] }, hiddenCats = { Ingreso: [], Gasto: [] }, sync = null, storageOk = true;
   try {
     localStorage.setItem("misFinanzas.test","1");
     storageOk = localStorage.getItem("misFinanzas.test") === "1";
@@ -283,9 +314,14 @@ function deleteCat(tipo, name){
     var rh = localStorage.getItem(HKEY);
     var h = rh ? JSON.parse(rh) : null;
     if (h && Array.isArray(h.Ingreso) && Array.isArray(h.Gasto)) hiddenCats = h;
+    var rs = localStorage.getItem(SKEY);
+    sync = rs ? JSON.parse(rs) : null;
   } catch (e) { storageOk = false; }
   if (Object.keys(budget).length === 0) { budget = Object.assign({}, SEED); persist(BKEY, budget); }
   state.movements = movements; state.budget = budget; state.customCats = customCats; state.hiddenCats = hiddenCats; state.storageOk = storageOk;
+  if (sync && typeof sync === "object") {
+    state.syncUrl = sync.url || ""; state.syncToken = sync.token || ""; state.syncEnabled = !!sync.enabled;
+  }
 })();
 
 function shiftMonth(y, m, back){
@@ -787,10 +823,13 @@ function submitMovement(){
   if (!state.fFecha || !state.fDesc.trim() || monto === null || !catName) { state.addError = true; render(); return; }
   if (state.fCat === "__nueva__") addCustomCat(state.fTipo, catName);
   var data = { fecha: state.fFecha, tipo: state.fTipo, categoria: catName, frecuencia: state.fFrec, descripcion: state.fDesc.trim(), monto: monto };
-  var list = state.editId
-    ? state.movements.map(function(m){ return m.id === state.editId ? Object.assign({}, m, data) : m; })
-    : state.movements.concat([Object.assign({ id: newId() }, data)]);
+  var isEdit = !!state.editId;
+  var savedMov = isEdit ? Object.assign({}, state.movements.find(function(m){ return m.id === state.editId; }), data) : Object.assign({ id: newId() }, data);
+  var list = isEdit
+    ? state.movements.map(function(m){ return m.id === state.editId ? savedMov : m; })
+    : state.movements.concat([savedMov]);
   saveMovements(list);
+  syncMovement(isEdit ? "edit" : "add", savedMov);
   state.fDesc = ""; state.fMonto = ""; state.fCat = catName; state.fCatNueva = ""; state.addError = false; state.editId = null;
   render();
 }
@@ -845,6 +884,7 @@ function renderMovimientos(){
         el("button", { type: "button", class: "x-btn", "aria-label": "Borrar movimiento", text: "×", onclick: function(){
           var list2 = state.movements.filter(function(x){ return x.id !== m.id; });
           persist(MKEY, list2); state.movements = list2;
+          syncMovement("delete", m);
           if (state.editId === m.id) { state.editId = null; state.fDesc = ""; state.fMonto = ""; }
           render();
         }})
@@ -900,6 +940,7 @@ function renderDatos(){
       state.movements.forEach(function(m){ existing[m.fecha + "|" + m.descripcion + "|" + (Number(m.monto)||0).toFixed(2)] = true; });
       var fresh = res.rows.filter(function(r){ return !existing[r.fecha + "|" + r.descripcion + "|" + r.monto.toFixed(2)]; });
       saveMovements(state.movements.concat(fresh));
+      fresh.forEach(function(m){ syncMovement("add", m); });
       state.previewRows = []; state.importText = ""; state.importOk = true;
       state.importStatus = fresh.length + " movimiento(s) importados" + (res.rows.length - fresh.length ? ", " + (res.rows.length - fresh.length) + " duplicados omitidos" : "") + ".";
       render();
@@ -966,6 +1007,26 @@ function renderDatos(){
   expWrap.appendChild(expTa);
   expCard.appendChild(expWrap);
   root.appendChild(expCard);
+
+  var syncCard = el("div", { class: "card" }, [
+    el("h2", { text: "Sincronización con Google Sheets", style: "margin-bottom:5px" }),
+    el("p", { style: "margin:0 0 12px;font-size:12px;color:var(--muted);text-wrap:pretty", text: "Requiere publicar un Google Apps Script como Web App (una vez) y pegar acá su URL y clave. Con esto activado, cada movimiento que agregués, edités o borres se envía solo a tu Google Sheet." })
+  ]);
+  var syncWrap = el("div", { style: "display:flex;flex-direction:column;gap:11px" });
+  syncWrap.appendChild(el("label", { class: "field" }, [el("span", { class: "lbl", text: "URL del Apps Script (…/exec)" }),
+    el("input", { type: "url", autocomplete: "off", placeholder: "https://script.google.com/macros/s/…/exec", value: state.syncUrl,
+      oninput: function(e){ state.syncUrl = e.target.value.trim(); saveSyncConfig(); } })]));
+  syncWrap.appendChild(el("label", { class: "field" }, [el("span", { class: "lbl", text: "Clave (token)" }),
+    el("input", { type: "text", autocomplete: "off", placeholder: "La misma clave que pusiste en el script", value: state.syncToken,
+      oninput: function(e){ state.syncToken = e.target.value; saveSyncConfig(); } })]));
+  syncWrap.appendChild(el("button", { type: "button", class: "seg" + (state.syncEnabled ? " on" : ""), style: "height:46px",
+    text: state.syncEnabled ? "Sincronización automática: Activada" : "Sincronización automática: Desactivada",
+    onclick: function(){ state.syncEnabled = !state.syncEnabled; saveSyncConfig(); render(); } }));
+  syncWrap.appendChild(el("button", { type: "button", class: "btn-secondary", text: state.syncBusy ? "Enviando…" : "Enviar todo el historial ahora",
+    onclick: function(){ if (!state.syncBusy) syncAll(); } }));
+  if (state.syncStatus) syncWrap.appendChild(el("p", { style: "margin:0;font-size:12px;color:var(--muted)", text: state.syncStatus }));
+  syncCard.appendChild(syncWrap);
+  root.appendChild(syncCard);
 
   var catCard = el("div", { class: "card" }, [
     el("h2", { text: "Categorías", style: "margin-bottom:5px" }),
