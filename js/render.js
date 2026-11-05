@@ -242,36 +242,62 @@ function renderHistorial(vm) {
   if (!hasAny) {
     body = emptyState('receipt', 'Aún no hay servicios', 'Cuando registres un mantenimiento aparecerá aquí con su costo y kilometraje.', 'goAgregar', 'Registrar servicio');
   } else if (vm.historyView === 'pieza') {
-    const withH = S.items.filter(i => i.last).sort((a, b) => b.last.date.localeCompare(a.last.date));
+    const withH = S.items.filter(i => i.last).sort((a, b) => a.piece.localeCompare(b.piece, 'es'));
     const without = S.items.filter(i => !i.last);
-    body = '<div class="list">' + withH.map(r =>
-      '<button type="button" class="row" data-action="openDetail" data-id="' + esc(r.id) + '">' +
-        '<span class="tile tone-' + r.tone + '">' + icon(pieceIcon(r), 20) + '</span>' +
-        '<span class="row-main"><span class="row-title">' + esc(r.piece) + '</span>' +
-        '<span class="row-sub">' + esc(fmtDateIso(r.last.date)) + ' · ' + fmtInt(r.last.km) + ' km' + (r.history.length > 1 ? ' · ' + r.history.length + ' servicios' : '') + '</span></span>' +
-        '<span class="row-cost">' + fmtMoney(r.last.cost) + '</span></button>').join('') + '</div>' +
+    body = '<div class="list">' + withH.map(r => {
+      const key = 'p:' + r.id, open = !!(vm.histOpen && vm.histOpen[key]);
+      const spent = r.history.reduce((t, h) => t + h.cost, 0);
+      return '<div class="acc' + (open ? ' open' : '') + '">' +
+        '<button type="button" class="acc-head" data-action="toggleHist" data-key="' + esc(key) + '" aria-expanded="' + open + '">' +
+          '<span class="tile tone-' + r.tone + '">' + icon(pieceIcon(r), 20) + '</span>' +
+          '<span class="row-main"><span class="row-title">' + esc(r.piece) + '</span>' +
+          '<span class="row-sub">' + r.history.length + (r.history.length === 1 ? ' servicio' : ' servicios') + ' · último ' + esc(fmtDateIso(r.last.date)) + '</span></span>' +
+          '<span class="acc-side"><b>' + fmtMoney(spent) + '</b>' + icon('chevD', 18, 'acc-chev') + '</span></button>' +
+        (open ? '<div class="acc-body">' + r.history.map(h =>
+          '<div class="acc-line"><span class="acc-line-main"><b>' + esc(fmtDateIso(h.date)) + '</b><small>' + fmtInt(h.km) + ' km</small></span><span class="acc-line-cost">' + fmtMoney(h.cost) + '</span></div>').join('') +
+          '<button type="button" class="acc-link" data-action="openDetail" data-id="' + esc(r.id) + '">Ver pieza ' + icon('chevR', 16) + '</button></div>' : '') +
+        '</div>';
+    }).join('') + '</div>' +
       (without.length ? '<div class="section-head"><h3>Sin servicios registrados</h3></div><div class="list">' + without.map(r =>
         '<button type="button" class="row muted" data-action="openDetail" data-id="' + esc(r.id) + '"><span class="tile tone-idle">' + icon(pieceIcon(r), 20) + '</span>' +
         '<span class="row-main"><span class="row-title">' + esc(r.piece) + '</span><span class="row-sub">' + esc(r.lifespanLabel) + '</span></span>' + icon('chevR', 18, 'row-chev') + '</button>').join('') + '</div>' : '');
   } else {
-    const groups = [];
-    for (const e of historyEntries(v)) {
-      let g = groups[groups.length - 1];
-      if (!g || g.date !== e.h.date) { g = { date: e.h.date, km: e.h.km, total: 0, rows: [] }; groups.push(g); }
-      g.rows.push(e); g.total += e.h.cost; g.km = Math.max(g.km, e.h.km);
+    const visits = groupVisits(v);
+    const years = [];
+    for (const g of visits) {
+      let y = years[years.length - 1];
+      if (!y || y.year !== g.year) { y = { year: g.year, total: 0, visits: [] }; years.push(y); }
+      y.visits.push(g); y.total += g.total;
     }
-    body = groups.map(g =>
-      '<div class="group"><div class="group-head"><span class="group-date">' + esc(fmtDateIso(g.date)) + '</span><span class="group-meta">' + fmtInt(g.km) + ' km · ' + fmtMoney(g.total) + '</span></div><div class="list">' +
-      g.rows.map(e => {
-        const r = S.byId[e.item.id];
-        return '<button type="button" class="row" data-action="openDetail" data-id="' + esc(e.item.id) + '"><span class="tile tone-' + r.tone + '">' + icon(pieceIcon(r), 20) + '</span>' +
-          '<span class="row-main"><span class="row-title">' + esc(e.item.piece) + '</span></span><span class="row-cost">' + fmtMoney(e.h.cost) + '</span></button>';
+    const MES = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+    body = years.map(y =>
+      '<div class="group"><div class="group-head"><span class="group-date">' + esc(y.year) + '</span><span class="group-meta">' + y.visits.length + (y.visits.length === 1 ? ' visita' : ' visitas') + ' · ' + fmtMoney(y.total) + '</span></div><div class="list">' +
+      y.visits.map(g => {
+        const key = 'v:' + g.date, open = !!(vm.histOpen && vm.histOpen[key]);
+        const mm = Number(g.date.slice(5, 7)) - 1, dd = Number(g.date.slice(8, 10));
+        const multi = g.rows.length > 1;
+        return '<div class="acc' + (open ? ' open' : '') + '">' +
+          '<button type="button" class="acc-head" data-action="toggleHist" data-key="' + esc(key) + '" aria-expanded="' + open + '">' +
+            '<span class="datebox" aria-hidden="true"><b>' + dd + '</b><small>' + MES[mm] + '</small></span>' +
+            '<span class="row-main"><span class="row-title">' + esc(g.title) + '</span>' +
+            '<span class="row-sub">' + (multi ? g.rows.length + ' trabajos · ' : '') + esc(fmtDateIso(g.date)) + (multi ? '' : ' · ' + fmtInt(g.km) + ' km') + '</span></span>' +
+            '<span class="acc-side"><b>' + fmtMoney(g.total) + '</b>' + icon('chevD', 18, 'acc-chev') + '</span></button>' +
+          (open ? '<div class="acc-body">' +
+            (multi ? '<p class="acc-meta">' + esc(fmtDateIso(g.date)) + ' · ' + fmtInt(g.km) + ' km</p>' : '') +
+            g.rows.map(e => {
+              const r = S.byId[e.item.id];
+              return '<button type="button" class="acc-item" data-action="openDetail" data-id="' + esc(e.item.id) + '">' +
+                '<span class="tile sm tone-' + r.tone + '">' + icon(pieceIcon(r), 18) + '</span>' +
+                '<span class="acc-item-name">' + esc(e.item.piece) + '</span>' +
+                '<span class="acc-line-cost">' + fmtMoney(e.h.cost) + '</span>' + icon('chevR', 16, 'row-chev') + '</button>';
+            }).join('') + '</div>' : '') +
+          '</div>';
       }).join('') + '</div></div>').join('');
   }
   return '<h1 class="screen-title">Historial</h1>' +
     (hasAny ? '<section class="card chart-card"><div class="chart-head"><div><div class="stat-label">Invertido en total</div><div class="stat-value">' + fmtMoney(S.totalSpend) + '</div></div><span class="chip">12 meses</span></div>' + barChart(S.monthly) + '</section>' : '') +
     (hasAny ? '<div class="segmented" role="tablist"><button type="button" role="tab" aria-selected="' + (vm.historyView === 'pieza') + '" data-action="setViewPieza" class="' + (vm.historyView === 'pieza' ? 'active' : '') + '">Por pieza</button>' +
-      '<button type="button" role="tab" aria-selected="' + (vm.historyView === 'fecha') + '" data-action="setViewFecha" class="' + (vm.historyView === 'fecha' ? 'active' : '') + '">Por fecha</button></div>' : '') +
+      '<button type="button" role="tab" aria-selected="' + (vm.historyView !== 'pieza') + '" data-action="setViewFecha" class="' + (vm.historyView !== 'pieza' ? 'active' : '') + '">Por visita</button></div>' : '') +
     body;
 }
 

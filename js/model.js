@@ -384,6 +384,21 @@ function historyEntries(vehicle) {
   return list;
 }
 
+// Agrupa los servicios por visita (mismo día = una visita al taller). Más reciente primero.
+function groupVisits(vehicle) {
+  const visits = [];
+  for (const e of historyEntries(vehicle)) {
+    let g = visits[visits.length - 1];
+    if (!g || g.date !== e.h.date) { g = { date: e.h.date, km: 0, total: 0, rows: [] }; visits.push(g); }
+    g.rows.push(e); g.total += e.h.cost; g.km = Math.max(g.km, e.h.km);
+  }
+  for (const g of visits) {
+    g.title = g.rows.length > 1 ? 'Mantenimiento ' + fmtInt(g.km) + ' km' : g.rows[0].item.piece;
+    g.year = g.date.slice(0, 4);
+  }
+  return visits;
+}
+
 function computeVehicle(vehicle, now) {
   now = now || new Date();
   const kmPerYear = estimateKmPerYear(vehiclePoints(vehicle), now);
@@ -660,7 +675,7 @@ if (typeof module !== 'undefined' && module.exports) {
     SOON_AT, TEMPLATE_ITEMS, CATEGORIES, STATUS_META,
     parseLocalDate, toIso, todayIso, addMonths, addDays, daysBetween, fmtSpan, fmtMoney, slug,
     migrateVehicle, normalizeVehicle, needsMigration, createVehicle, parseBackup,
-    estimateKmPerYear, vehiclePoints, computeItem, computeVehicle, monthlySpend, historyEntries,
+    estimateKmPerYear, vehiclePoints, computeItem, computeVehicle, monthlySpend, historyEntries, groupVisits,
     validateService, addService, updateService, deleteService, updatePlan, validatePlan, setCurrentKm,
     parseAmount, parseInvoiceText, findDates, buildIcs, findItemByName,
   };

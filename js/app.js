@@ -14,7 +14,7 @@ function newAdd(v) {
 const state = {
   tab: 'inicio', prevTab: 'inicio', selectedId: null,
   vehicles: [], currentVehicleId: null, pickerOpen: false,
-  historyView: 'pieza', upFilter: 'todos', checklistOpen: false,
+  historyView: 'visita', histOpen: {}, upFilter: 'todos', checklistOpen: false,
   add: newAdd(null), modal: null,
   showInstall: false, installKind: null, notifDismissed: false, storageWarn: false,
 };
@@ -52,7 +52,7 @@ function computeViewModel() {
     hasVehicles: true, tab: state.tab, vehicle: v, S,
     pickerOpen: state.pickerOpen,
     vehicleOptions: state.vehicles.map(o => ({ id: o.id, name: o.name, plate: o.plate, items: o.items.length, active: o.id === v.id })),
-    historyView: state.historyView, upFilter: state.upFilter, checklistOpen: state.checklistOpen,
+    historyView: state.historyView, histOpen: state.histOpen, upFilter: state.upFilter, checklistOpen: state.checklistOpen,
     selected: S.byId[state.selectedId] || null,
     add: state.add, modal: state.modal, banner: buildBanner(v, S),
   };
@@ -551,7 +551,8 @@ const actions = {
   closeModal: () => { pendingConfirm = null; setState({ modal: null }); },
   confirmYes: () => { const f = pendingConfirm; pendingConfirm = null; if (f) f(); },
   setViewPieza: () => setState({ historyView: 'pieza' }),
-  setViewFecha: () => setState({ historyView: 'fecha' }),
+  setViewFecha: () => setState({ historyView: 'visita' }),
+  toggleHist: c => { const o = Object.assign({}, state.histOpen); if (o[c.key]) delete o[c.key]; else o[c.key] = true; setState({ histOpen: o }); },
   setFilter: c => setState({ upFilter: c.id }),
   toggleChecklist: () => setState({ checklistOpen: !state.checklistOpen }),
   quickService: c => openServiceSheet(c.id, null),
@@ -585,7 +586,7 @@ const actions = {
 appEl.addEventListener('click', e => {
   const el = e.target.closest('[data-action], [data-stop]');
   const insidePicker = e.target.closest('.picker, .vehicle-btn');
-  const ctx = el && el.dataset.action ? { action: el.dataset.action, id: el.dataset.id, hid: el.dataset.hid } : null;
+  const ctx = el && el.dataset.action ? { action: el.dataset.action, id: el.dataset.id, hid: el.dataset.hid, key: el.dataset.key } : null;
   if (state.pickerOpen && !insidePicker) { state.pickerOpen = false; if (!ctx || ctx.action !== 'toggleVehiclePicker') render(); }
   if (!ctx) return; // clic dentro de una hoja (data-stop) o fuera de todo
   if (actions[ctx.action]) actions[ctx.action](ctx);

@@ -436,3 +436,26 @@ input[type=date] { min-width: 0; }
 }
 
 .dyn { display: contents; }
+
+/* ---------- Historial: acordeones por visita / pieza ---------- */
+.acc { background: var(--surface); border-radius: 20px; box-shadow: var(--shadow-card); overflow: hidden; }
+.acc-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px 12px 12px; min-height: 66px; text-align: left; }
+.acc-head:active { background: var(--surface-2); }
+.acc-side { flex: none; display: flex; align-items: center; gap: 6px; font-size: 15px; }
+.acc-chev { color: var(--ink-3); transition: transform .2s ease; }
+.acc.open .acc-chev { transform: rotate(180deg); }
+.datebox { flex: none; display: grid; place-items: center; align-content: center; width: 46px; height: 46px; border-radius: 14px; background: var(--surface-2); color: var(--ink); line-height: 1; }
+.datebox b { font-size: 17px; font-weight: 800; }
+.datebox small { margin-top: 3px; font-size: 9.5px; font-weight: 800; letter-spacing: .06em; color: var(--ink-3); }
+.acc-body { display: flex; flex-direction: column; gap: 2px; padding: 0 12px 12px; border-top: 1px solid var(--surface-2); animation: fade .18s ease-out; }
+.acc-meta { margin: 10px 4px 4px; font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+.acc-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 4px; min-height: 48px; border-radius: 12px; text-align: left; }
+.acc-item:active { background: var(--surface-2); }
+.acc-item-name { flex: 1; min-width: 0; font-weight: 700; font-size: 14.5px; overflow-wrap: anywhere; }
+.tile.sm { width: 34px; height: 34px; border-radius: 11px; }
+.acc-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--surface-2); }
+.acc-line-main { display: flex; flex-direction: column; gap: 2px; }
+.acc-line-main b { font-size: 14.5px; }
+.acc-line-main small { font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+.acc-line-cost { flex: none; font-weight: 800; font-size: 14.5px; }
+.acc-link { display: inline-flex; align-items: center; gap: 4px; align-self: flex-end; margin-top: 8px; padding: 8px 4px; font-size: 13.5px; font-weight: 800; color: var(--accent-text, var(--ink-2)); }

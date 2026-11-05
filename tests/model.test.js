@@ -266,4 +266,18 @@ test('editar el plan a "No aplica" borra los intervalos', () => {
   assert.equal(it.noRepeat, true); assert.equal(it.intervalKm, 0); assert.equal(it.intervalMonths, 0);
 });
 
+console.log('Historial por visitas');
+test('agrupa por día, títulos y totales', () => {
+  const v = M.createVehicle({ name: 'T', plate: '', currentKm: 135000 }, false, NOW);
+  const base = { category: 'Motor', km: 135000, intervalKm: 5000, intervalMonths: 6 };
+  M.addService(v, Object.assign({ piece: 'Aceite', date: '2026-09-02', cost: 40 }, base), NOW);
+  M.addService(v, Object.assign({ piece: 'Filtro de aire', date: '2026-09-02', cost: 15 }, base), NOW);
+  M.addService(v, Object.assign({ piece: 'Batería', date: '2026-03-01', cost: 90 }, base, { km: 130000 }), NOW);
+  const g = M.groupVisits(v);
+  assert.equal(g.length, 2);
+  assert.equal(g[0].title, 'Mantenimiento 135.000 km');
+  assert.equal(g[0].rows.length, 2); assert.equal(g[0].total, 55);
+  assert.equal(g[1].title, 'Batería'); assert.equal(g[1].year, '2026');
+});
+
 console.log('\n' + passed + ' pruebas pasaron' + (process.exitCode ? ' — HAY FALLOS' : ''));
